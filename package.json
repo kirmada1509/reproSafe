@@ -1,0 +1,12 @@
+{
+  "name": "reprosafe",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first sensitive bug reproduction workbench",
+  "scripts": {
+    "test": "python3 -m unittest discover -s tests -p 'test_*.py'"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  }
+}

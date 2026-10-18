@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "title": "Northstar invoice total parser",
+    "description": "A fictional billing API returns a server error for one customer record.",
+    "dependencies": ["python>=3.12", "northstar-billing-sdk==4.8.1"],
+    "runtime": "local deterministic simulator"
+  },
+  "request": {
+    "customer": {
+      "name": "Maya Iyer",
+      "email": "maya.iyer@northstar.example",
+      "account_id": "acct_fictional_48291",
+      "tier": "enterprise"
+    },
+    "invoice": {
+      "invoice_id": "inv_demo_2026_091",
+      "currency": "USD",
+      "line_items": [
+        {"sku": "observability-seat", "quantity": 2, "unit_price": 99.5}
+      ]
+    },
+    "payment": {
+      "card_last4": "4242"
+    }
+  },
+  "expected": {
+    "status": 200,
+    "total": 199.0,
+    "currency": "USD"
+  },
+  "observed": {
+    "status": 500,
+    "error_code": "REPROSAFE_TARGET_FAILURE",
+    "message": "billing context could not be parsed"
+  },
+  "reproduction": {
+    "steps": [
+      "POST the request JSON to the invoice total endpoint.",
+      "Compare the response with the expected 200 response.",
+      "The fictional SDK raises a parser error before calculating the total."
+    ],
+    "timeout_ms": 500,
+    "command": "python3 replay.py --input request.json"
+  },
+  "disclosure": {
+    "sensitive_paths": [
+      "request.customer.name",
+      "request.customer.email",
+      "request.customer.account_id",
+      "request.payment.card_last4"
+    ],
+    "rules": [
+      "No original sensitive values in the export",
+      "Keep invoice shape and target failure reproducible"
+    ]
+  }
+}

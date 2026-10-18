@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="ReproSafe turns sensitive bug reports into shareable, verified reproductions.">
+    <title>ReproSafe · Reproduce safely</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to workspace</a>
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">R</div>
+        <div>
+          <p class="eyebrow">LOCAL-FIRST DEV TOOL</p>
+          <h1>ReproSafe</h1>
+        </div>
+      </div>
+      <p class="privacy-note"><span class="lock-icon" aria-hidden="true">⌑</span> Original inputs never leave this browser session</p>
+    </header>
+
+    <main id="main" class="shell">
+      <section class="intro" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow accent">NORTHSTAR BILLING · FICTIONAL DEMO</p>
+          <h2 id="page-title">Reproduce the failure before you reduce it.</h2>
+          <p class="lede">Share the bug without sharing the customer data. Start with a ready-made invoice parser incident, then verify the exact failure locally.</p>
+        </div>
+        <div class="scope-card">
+          <span class="scope-icon" aria-hidden="true">◎</span>
+          <div>
+            <strong>Phase 1 of 5</strong>
+            <span>Deterministic local runner</span>
+          </div>
+        </div>
+      </section>
+
+      <nav class="journey" aria-label="ReproSafe workflow">
+        <div class="journey-step active" aria-current="step"><span class="step-number">1</span><span><strong>Reproduce</strong><small>Confirm the bug</small></span></div>
+        <div class="journey-connector"></div>
+        <div class="journey-step locked" aria-disabled="true"><span class="step-number">2</span><span><strong>Reduce</strong><small>Keep only what matters</small></span></div>
+        <div class="journey-connector"></div>
+        <div class="journey-step locked" aria-disabled="true"><span class="step-number">3</span><span><strong>Transform</strong><small>Apply disclosure rules</small></span></div>
+        <div class="journey-connector"></div>
+        <div class="journey-step locked" aria-disabled="true"><span class="step-number">4</span><span><strong>Review &amp; export</strong><small>Inspect what leaves</small></span></div>
+      </nav>
+
+      <div id="status" class="status-banner neutral" role="status" aria-live="polite">
+        <span class="status-icon" aria-hidden="true">○</span>
+        <div><strong id="status-title">Example ready</strong><span id="status-message">Run the local example to check whether the target failure is present.</span></div>
+      </div>
+
+      <section class="workspace-grid" aria-label="Reproduction workspace">
+        <article class="panel input-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">INPUT FIXTURE</p>
+              <h3>Northstar invoice parser</h3>
+            </div>
+            <span class="tag fictional">Fictional data</span>
+          </div>
+          <p class="panel-description">A billing request that should return a total of $199.00, but the SDK crashes before calculation.</p>
+          <div class="data-summary">
+            <div><span class="data-label">Input type</span><strong>JSON request</strong></div>
+            <div><span class="data-label">Runtime</span><strong>Local simulator</strong></div>
+            <div><span class="data-label">Sensitive paths</span><strong>4 configured</strong></div>
+          </div>
+          <details class="json-details" open>
+            <summary><span>Inspect request JSON</span><span class="summary-hint">read-only</span></summary>
+            <pre id="request-json" class="code-block" tabindex="0">Loading example…</pre>
+          </details>
+        </article>
+
+        <article class="panel expectation-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="panel-kicker">ASSERTION</p>
+              <h3>What should happen</h3>
+            </div>
+            <span class="tag expected">Expected</span>
+          </div>
+          <div class="assertion-card success-card">
+            <span class="assertion-icon" aria-hidden="true">✓</span>
+            <div><strong>HTTP 200 · Invoice total calculated</strong><span>Return USD 199.00 for two observability seats.</span></div>
+          </div>
+          <div class="assertion-card observed-card">
+            <span class="assertion-icon" aria-hidden="true">!</span>
+            <div><strong>Observed: HTTP 500 · Parser error</strong><span>ReproSafe expects <code>REPROSAFE_TARGET_FAILURE</code>.</span></div>
+          </div>
+          <details class="json-details">
+            <summary><span>Inspect expected &amp; observed</span><span class="summary-hint">read-only</span></summary>
+            <pre id="assertion-json" class="code-block" tabindex="0">Loading example…</pre>
+          </details>
+        </article>
+      </section>
+
+      <section class="run-section" aria-labelledby="run-heading">
+        <div class="run-copy">
+          <p class="panel-kicker">VERIFICATION</p>
+          <h3 id="run-heading">Run the original example</h3>
+          <p>ReproSafe runs this fictional request in a deterministic local simulator. No network request or external model is used.</p>
+        </div>
+        <button id="run-button" class="primary-button" type="button"><span aria-hidden="true">▶</span> Run example</button>
+      </section>
+
+      <section id="result-panel" class="result-panel hidden" aria-labelledby="result-heading">
+        <div class="result-heading">
+          <div><p class="panel-kicker">LATEST EXECUTION</p><h3 id="result-heading">Execution result</h3></div>
+          <span id="result-badge" class="result-badge"></span>
+        </div>
+        <div class="result-grid">
+          <div><span class="data-label">Classification</span><strong id="result-classification">—</strong></div>
+          <div><span class="data-label">Runtime</span><strong id="result-duration">—</strong></div>
+          <div><span class="data-label">Evidence</span><strong id="result-evidence">—</strong></div>
+        </div>
+        <p id="result-message" class="result-message"></p>
+      </section>
+
+      <section class="taxonomy" aria-labelledby="taxonomy-heading">
+        <div class="taxonomy-copy"><p class="panel-kicker">RESULT TAXONOMY</p><h3 id="taxonomy-heading">A failure is not just “red.”</h3><p>Each execution gets a specific classification so an invalid fixture or broken local environment is never mistaken for the customer bug.</p></div>
+        <div class="taxonomy-list">
+          <div><span class="taxonomy-dot target">!</span><span><strong>Target failure</strong><small>Expected defect marker is present.</small></span></div>
+          <div><span class="taxonomy-dot success">✓</span><span><strong>Successful input</strong><small>Input completes without the target failure.</small></span></div>
+          <div><span class="taxonomy-dot error">×</span><span><strong>Execution error</strong><small>Invalid input, missing dependency, or timeout.</small></span></div>
+        </div>
+      </section>
+
+      <footer class="footer-note"><span>ReproSafe keeps the original fixture immutable.</span><span>Disclosure checks: <strong>not run</strong></span></footer>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
