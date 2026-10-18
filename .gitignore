@@ -8,3 +8,5 @@ dist/
 brag-output-*/composition/.hyperframes/
 brag-output-*/composition/artifacts/
 brag-output-*/composition/video-state.json
+brag-output-*/composition/.thumbnails/
+brag-output-*/composition/.waveform-cache/
