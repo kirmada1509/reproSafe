@@ -326,6 +326,15 @@ if __name__ == "__main__":
 '''
 
 
+def replay_result(request: dict[str, Any], *, fixed: bool = False) -> dict[str, Any]:
+    """Run the same logic embedded in the exported clean replay."""
+    email = request["customer"]["email"].strip().lower()
+    total = sum(item["quantity"] * item["unit_price"] for item in request["invoice"]["line_items"])
+    if not fixed and email.endswith(".example"):
+        return {"status": 500, "error_code": TARGET_CODE, "message": "billing context could not be parsed"}
+    return {"status": 200, "total": round(total, 2), "currency": request["invoice"]["currency"]}
+
+
 def _export_files(case: dict[str, Any], paths: list[str], strategy: str) -> tuple[dict[str, bytes], dict[str, Any]]:
     transformed = transform_case(case, paths, strategy)
     reproduction = execute_case(transformed)
@@ -336,7 +345,10 @@ def _export_files(case: dict[str, Any], paths: list[str], strategy: str) -> tupl
     replay = _replay_script()
     # The replay's --fixed behavior is intentionally recorded separately from
     # the defect-mode local execution. It must return the expected 200 result.
-    expected_total = round(sum(item["quantity"] * item["unit_price"] for item in transformed["request"]["invoice"]["line_items"]), 2)
+    fixed_result = replay_result(transformed["request"], fixed=True)
+    if fixed_result["status"] != 200:
+        raise ValueError("The clean replay did not pass in fixed mode")
+    expected_total = fixed_result["total"]
     evidence = {
         "report_version": "1",
         "target": "REPROSAFE_TARGET_FAILURE",
