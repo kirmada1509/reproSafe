@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import time
 from copy import deepcopy
 from http import HTTPStatus
@@ -118,6 +117,115 @@ def compact_json(value: Any) -> str:
     return json.dumps(value, indent=2, sort_keys=True) + "\n"
 
 
+def case_size(case: dict[str, Any]) -> int:
+    """Return the exact UTF-8 byte size used for reduction comparisons."""
+    return len(compact_json(case).encode("utf-8"))
+
+
+def _leaf_paths(value: Any, prefix: str = "") -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if isinstance(child, (dict, list)):
+                paths.extend(_leaf_paths(child, path))
+            else:
+                paths.append(path)
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            path = f"{prefix}[{index}]"
+            if isinstance(child, (dict, list)):
+                paths.extend(_leaf_paths(child, path))
+            else:
+                paths.append(path)
+    return paths
+
+
+def _remove_path(case: dict[str, Any], path: str) -> dict[str, Any]:
+    """Remove one leaf from a JSON case without mutating the supplied case."""
+    candidate = deepcopy(case)
+    parts = path.replace("]", "").replace("[", ".").split(".")
+    current: Any = candidate
+    for part in parts[:-1]:
+        current = current[int(part)] if isinstance(current, list) else current[part]
+    last = parts[-1]
+    if isinstance(current, list):
+        current.pop(int(last))
+    else:
+        current.pop(last, None)
+    return candidate
+
+
+def reduce_case(case: dict[str, Any], *, cancel_after: int | None = None) -> dict[str, Any]:
+    """Greedily remove leaf values, accepting only checked target failures.
+
+    This is a practical reduction report, not a proof of mathematical minimality.
+    Every accepted candidate has an execution result recorded in ``checks``.
+    """
+    original = deepcopy(case)
+    baseline = execute_case(original)
+    original_size = case_size(original)
+    if baseline["kind"] != "target-failure":
+        return {
+            "status": "not-reducible",
+            "original_size": original_size,
+            "candidate": original,
+            "candidate_size": original_size,
+            "attempts": 0,
+            "accepted": 0,
+            "checks": [],
+            "message": "Reduction requires a reproduced target failure.",
+        }
+
+    current = deepcopy(original)
+    checks: list[dict[str, Any]] = []
+    accepted = 0
+    paths = [
+        path for path in _leaf_paths(current)
+        if path not in {"request.customer.email", "request.invoice.line_items[0].quantity", "request.invoice.line_items[0].unit_price"}
+    ]
+    for path in paths:
+        if cancel_after is not None and len(checks) >= cancel_after:
+            return {
+                "status": "cancelled",
+                "original_size": original_size,
+                "candidate": original,
+                "candidate_size": original_size,
+                "attempts": len(checks),
+                "accepted": 0,
+                "checks": checks,
+                "message": "Reduction cancelled; the original input remains the candidate.",
+            }
+        if _get_path(current, path) is None:
+            continue
+        trial = _remove_path(current, path)
+        result = execute_case(trial)
+        accepted_trial = result["kind"] == "target-failure"
+        check = {
+            "path": path,
+            "accepted": accepted_trial,
+            "result": result["kind"],
+            "size_before": case_size(current),
+            "size_after": case_size(trial),
+        }
+        checks.append(check)
+        if accepted_trial:
+            current = trial
+            accepted += 1
+
+    candidate_size = case_size(current)
+    return {
+        "status": "completed",
+        "original_size": original_size,
+        "candidate": current,
+        "candidate_size": candidate_size,
+        "attempts": len(checks),
+        "accepted": accepted,
+        "checks": checks,
+        "message": f"Accepted {accepted} checked reductions; this candidate is not claimed to be mathematically minimal.",
+    }
+
+
 class ReproSafeHandler(BaseHTTPRequestHandler):
     server_version = "ReproSafe/0.1"
 
@@ -156,7 +264,7 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path != "/api/run":
+        if path not in {"/api/run", "/api/reduce"}:
             self._send_json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -165,9 +273,14 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
             case = payload.get("case") if isinstance(payload, dict) else None
             if not isinstance(case, dict):
                 raise ValueError("body.case must be an object")
-            timeout_ms = payload.get("timeout_ms")
-            result = execute_case(case, timeout_ms=timeout_ms if isinstance(timeout_ms, int) else None)
-            self._send_json({"result": result})
+            if path == "/api/run":
+                timeout_ms = payload.get("timeout_ms")
+                result = execute_case(case, timeout_ms=timeout_ms if isinstance(timeout_ms, int) else None)
+                self._send_json({"result": result})
+            else:
+                cancel_after = payload.get("cancel_after")
+                report = reduce_case(case, cancel_after=cancel_after if isinstance(cancel_after, int) else None)
+                self._send_json({"report": report})
         except (ValueError, json.JSONDecodeError) as exc:
             self._send_json({"result": _result("execution-error", "Execution error", str(exc), time.perf_counter())}, HTTPStatus.BAD_REQUEST)
 

@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from server import execute_case, load_fixture
+from server import case_size, execute_case, load_fixture, reduce_case
 
 
 class ReproductionEngineTests(unittest.TestCase):
@@ -58,6 +58,25 @@ class ReproductionEngineTests(unittest.TestCase):
 
         self.assertEqual(parsed, self.fixture)
         self.assertEqual(len(parsed["disclosure"]["sensitive_paths"]), 4)
+
+    def test_reduction_accepts_only_checked_target_failures_and_gets_smaller(self):
+        report = reduce_case(self.fixture)
+
+        self.assertEqual(report["status"], "completed")
+        self.assertLess(report["candidate_size"], report["original_size"])
+        self.assertGreater(report["accepted"], 0)
+        self.assertEqual(execute_case(report["candidate"])["kind"], "target-failure")
+        self.assertTrue(all(check["accepted"] for check in report["checks"] if check["accepted"]))
+        self.assertTrue(all(check["result"] == "target-failure" for check in report["checks"] if check["accepted"]))
+
+    def test_cancelled_reduction_keeps_original_candidate(self):
+        original = json.loads(json.dumps(self.fixture))
+        report = reduce_case(original, cancel_after=1)
+
+        self.assertEqual(report["status"], "cancelled")
+        self.assertEqual(report["candidate"], original)
+        self.assertEqual(report["candidate_size"], case_size(original))
+        self.assertEqual(report["accepted"], 0)
 
 
 if __name__ == "__main__":

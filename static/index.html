@@ -39,7 +39,7 @@
       <nav class="journey" aria-label="ReproSafe workflow">
         <div class="journey-step active" aria-current="step"><span class="step-number">1</span><span><strong>Reproduce</strong><small>Confirm the bug</small></span></div>
         <div class="journey-connector"></div>
-        <div class="journey-step locked" aria-disabled="true"><span class="step-number">2</span><span><strong>Reduce</strong><small>Keep only what matters</small></span></div>
+        <div id="step-reduce" class="journey-step locked" aria-disabled="true"><span class="step-number">2</span><span><strong>Reduce</strong><small>Keep only what matters</small></span></div>
         <div class="journey-connector"></div>
         <div class="journey-step locked" aria-disabled="true"><span class="step-number">3</span><span><strong>Transform</strong><small>Apply disclosure rules</small></span></div>
         <div class="journey-connector"></div>
@@ -115,6 +115,32 @@
           <div><span class="data-label">Evidence</span><strong id="result-evidence">—</strong></div>
         </div>
         <p id="result-message" class="result-message"></p>
+      </section>
+
+      <section id="reduction-panel" class="reduction-panel hidden" aria-labelledby="reduction-heading">
+        <div class="reduction-intro">
+          <div><p class="panel-kicker">PHASE 2 · REDUCE</p><h3 id="reduction-heading">Find a smaller candidate</h3><p>ReproSafe tries removing one JSON value at a time. A change is accepted only after the local runner confirms the target failure still exists.</p></div>
+          <div class="reduction-actions"><button id="reduce-button" class="primary-button" type="button"><span aria-hidden="true">⌁</span> Reduce example</button><button id="cancel-button" class="secondary-button hidden" type="button">Cancel reduction</button></div>
+        </div>
+        <div id="reduction-progress" class="progress-area hidden" aria-live="polite">
+          <div class="progress-label"><span id="progress-text">Preparing checks…</span><span id="progress-count">0 / 0</span></div>
+          <progress id="progress-bar" value="0" max="1">0%</progress>
+        </div>
+        <div id="reduction-summary" class="reduction-summary hidden">
+          <div><span class="data-label">Original size</span><strong id="original-size">—</strong></div>
+          <div><span class="data-label">Candidate size</span><strong id="candidate-size">—</strong></div>
+          <div><span class="data-label">Accepted checks</span><strong id="accepted-count">—</strong></div>
+          <div><span class="data-label">Disclosure</span><strong class="not-run">Not run</strong></div>
+        </div>
+        <p id="reduction-message" class="reduction-message"></p>
+        <details id="candidate-details" class="json-details hidden">
+          <summary><span>Inspect reduced candidate</span><span class="summary-hint">checked JSON</span></summary>
+          <pre id="candidate-json" class="code-block" tabindex="0"></pre>
+        </details>
+        <details id="checks-details" class="checks-details hidden">
+          <summary><span>Inspect reduction checks</span><span class="summary-hint">every attempt</span></summary>
+          <div id="checks-list" class="checks-list"></div>
+        </details>
       </section>
 
       <section class="taxonomy" aria-labelledby="taxonomy-heading">
