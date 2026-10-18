@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --ink: #17222f;
+        --muted: #687483;
+        --line: #dbe2e8;
+        --canvas: #f5f7f9;
+        --navy: #1d3557;
+        --deep: #152a46;
+        --teal: #0d7c76;
+        --teal-soft: #e3f3f0;
+        --amber: #e8ba6b;
+        --amber-dark: #7a4c12;
+        --amber-soft: #fff3df;
+        --red: #b44747;
+        --red-soft: #fbeaea;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      @font-face { font-family: "SFMono-Regular"; src: local("SFMono-Regular"); }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--canvas); }
+      body { color: var(--ink); }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--canvas); }
+      .clip { position: absolute; inset: 0; overflow: hidden; }
+      .full-bleed { position: absolute; inset: 0; }
+      .scene-light { background: var(--canvas); }
+      .scene-dark { color: #fff; background: var(--deep); }
+      .grain { position: absolute; inset: 0; opacity: .12; background-image: radial-gradient(#8aa3b8 0.7px, transparent 0.7px); background-size: 11px 11px; }
+      .glow { position: absolute; width: 750px; height: 750px; border-radius: 50%; background: #cceae6; opacity: .8; filter: blur(22px); }
+      .glow-a { left: -210px; top: -280px; }
+      .glow-b { right: -210px; bottom: -330px; background: #f7e2bc; opacity: .55; }
+      .dark-glow { position: absolute; width: 920px; height: 920px; right: -240px; top: -310px; border-radius: 50%; background: #2c6383; opacity: .34; filter: blur(30px); }
+      .dark-glow-two { position: absolute; width: 600px; height: 600px; left: -280px; bottom: -350px; border-radius: 50%; background: #287c75; opacity: .25; filter: blur(30px); }
+      .tiny-label { color: #81909f; font-size: 23px; font-weight: 800; letter-spacing: .13em; }
+      .tiny-label.light { color: #a8bfce; }
+      .headline { margin: 0; font-size: 116px; line-height: .96; letter-spacing: -.065em; font-weight: 820; }
+      .headline.small { font-size: 74px; }
+      .headline.light { color: #fff; }
+      .body-copy { margin: 0; color: var(--muted); font-size: 31px; line-height: 1.28; }
+      .body-copy.light { color: #c5d5e0; }
+      .navy-rule { height: 5px; width: 160px; background: var(--navy); }
+      .teal-rule { height: 5px; width: 140px; background: var(--teal); }
+      .amber-mark { display: grid; place-items: center; width: 68px; height: 68px; border-radius: 18px; color: var(--deep); background: var(--amber); font-size: 42px; font-weight: 900; }
+      .corner-mark { position: absolute; right: 100px; bottom: 76px; display: flex; align-items: center; gap: 20px; }
+      .corner-mark span { color: #557187; font-size: 24px; font-weight: 800; letter-spacing: .04em; }
+      .stamp { display: inline-flex; align-items: center; gap: 12px; padding: 12px 18px; border: 3px solid #62b9ad; border-radius: 99px; color: #a9ece1; font-size: 20px; font-weight: 800; letter-spacing: .1em; }
+      .stamp-dot { width: 13px; height: 13px; border-radius: 50%; background: #62b9ad; }
+
+      /* Scene 1: hook */
+      .hook-wrap { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 154px; }
+      .hook-copy { width: 1200px; }
+      .hook-line { display: block; }
+      .hook-line.secondary { color: var(--teal); }
+      .hook-marker { display: inline-flex; align-items: center; gap: 16px; margin-top: 50px; padding: 14px 22px; border-radius: 12px; color: var(--amber-dark); background: var(--amber-soft); font-size: 26px; font-weight: 800; }
+      .hook-marker b { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: var(--amber-dark); font-size: 20px; }
+
+      /* Shared evidence UI */
+      .ui-window { position: absolute; left: 126px; right: 126px; top: 92px; bottom: 86px; overflow: hidden; border: 3px solid #d5e0e7; border-radius: 26px; background: #fff; box-shadow: 0 28px 70px rgba(28, 47, 69, .16); }
+      .ui-topbar { height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; color: #fff; background: var(--deep); }
+      .ui-brand { display: flex; align-items: center; gap: 16px; font-size: 28px; font-weight: 800; }
+      .ui-brand .mini-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--deep); background: var(--amber); font-size: 25px; font-weight: 900; }
+      .ui-privacy { color: #b9c7d5; font-size: 20px; }
+      .ui-body { padding: 34px 42px; }
+      .ui-eyebrow { color: var(--teal); font-size: 18px; font-weight: 850; letter-spacing: .14em; }
+      .ui-title { margin: 12px 0 0; color: var(--ink); font-size: 45px; line-height: 1.02; letter-spacing: -.04em; font-weight: 800; }
+      .journey { display: flex; align-items: center; gap: 20px; margin-top: 28px; }
+      .journey-step { display: flex; align-items: center; gap: 11px; color: #5f707e; }
+      .journey-step.active { color: var(--teal); }
+      .journey-step.done { color: var(--teal); }
+      .step-dot { display: grid; place-items: center; width: 32px; height: 32px; border: 2px solid #bdc9d5; border-radius: 50%; font-size: 17px; font-weight: 850; }
+      .journey-step.active .step-dot, .journey-step.done .step-dot { color: #fff; border-color: var(--teal); background: var(--teal); }
+      .journey-step strong { font-size: 20px; }
+      .journey-line { height: 2px; width: 74px; background: #d0d9e1; }
+      .evidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 30px; }
+      .evidence-card { min-height: 264px; padding: 26px; border: 2px solid var(--line); border-radius: 17px; background: #fff; }
+      .evidence-card.target { border-color: #ecd29f; background: var(--amber-soft); }
+      .evidence-card.good { border-color: #bfe1dc; background: var(--teal-soft); }
+      .card-label { color: #5d6e7c; font-size: 17px; font-weight: 850; letter-spacing: .12em; }
+      .card-title { margin-top: 23px; font-size: 27px; font-weight: 800; }
+      .card-sub { margin-top: 12px; color: #5f6d7a; font-size: 21px; line-height: 1.3; }
+      .run-button { position: absolute; right: 42px; bottom: 34px; padding: 18px 28px; border-radius: 9px; color: var(--deep); background: var(--amber); font-size: 23px; font-weight: 850; }
+      .failure-banner { position: absolute; left: 42px; right: 42px; bottom: 34px; display: flex; align-items: center; gap: 18px; padding: 16px 22px; border: 2px solid #ecd29f; border-radius: 11px; color: var(--amber-dark); background: var(--amber-soft); font-size: 24px; font-weight: 800; }
+      .failure-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; background: var(--amber-dark); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+      /* Scene 3: reduction */
+      .reduce-panel { position: absolute; left: 160px; right: 160px; top: 120px; bottom: 112px; padding: 46px 54px; border: 3px solid #d6e1e8; border-radius: 26px; background: #fff; box-shadow: 0 28px 70px rgba(28, 47, 69, .13); }
+      .reduce-head { display: flex; align-items: flex-start; justify-content: space-between; }
+      .reduce-title { margin: 12px 0 0; font-size: 56px; letter-spacing: -.05em; }
+      .not-run { padding: 12px 17px; border-radius: 99px; color: var(--amber-dark); background: var(--amber-soft); font-size: 20px; font-weight: 850; }
+      .size-row { display: flex; align-items: end; gap: 30px; margin-top: 65px; }
+      .size-block { min-width: 330px; }
+      .size-label { color: #81909f; font-size: 19px; font-weight: 850; letter-spacing: .1em; }
+      .size-value { margin-top: 8px; color: var(--navy); font-size: 92px; line-height: 1; letter-spacing: -.07em; font-weight: 850; }
+      .size-value.teal { color: var(--teal); }
+      .size-arrow { padding-bottom: 17px; color: var(--amber-dark); font-size: 52px; font-weight: 900; }
+      .progress-track { height: 12px; margin-top: 37px; overflow: hidden; border-radius: 99px; background: #e8eef2; }
+      .progress-fill { width: 0%; height: 100%; border-radius: 99px; background: var(--teal); }
+      .checks-row { display: flex; gap: 18px; margin-top: 35px; }
+      .check-chip { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 10px; color: #12645f; background: var(--teal-soft); font-size: 19px; font-weight: 700; }
+      .check-chip i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #bfe1dc; font-style: normal; font-weight: 900; }
+      .reduce-footer { position: absolute; left: 54px; right: 54px; bottom: 38px; display: flex; align-items: center; justify-content: space-between; color: #687483; font-size: 21px; }
+      .reduce-footer strong { color: var(--teal); }
+
+      /* Scene 4: transform */
+      .transform-wrap { position: absolute; inset: 0; padding: 118px 152px 90px; }
+      .transform-heading { display: flex; align-items: end; justify-content: space-between; }
+      .transform-title { margin: 10px 0 0; font-size: 62px; letter-spacing: -.06em; }
+      .transform-sub { max-width: 500px; margin: 0 0 5px; color: var(--muted); font-size: 24px; line-height: 1.3; text-align: right; }
+      .transform-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 47px; }
+      .transform-card { min-height: 430px; padding: 30px; border: 3px solid #dbe2e8; border-radius: 22px; background: #fff; box-shadow: 0 20px 50px rgba(28, 47, 69, .08); }
+      .transform-card.good { border-color: #63b9ae; box-shadow: 0 20px 50px rgba(13, 124, 118, .16); }
+      .transform-card h3 { margin: 14px 0 0; font-size: 35px; letter-spacing: -.04em; }
+      .transform-card p { margin: 10px 0 0; color: var(--muted); font-size: 21px; }
+      .transform-result { margin-top: 42px; padding: 23px; border-radius: 13px; background: var(--red-soft); color: #8c3636; font-size: 25px; font-weight: 800; }
+      .transform-card.good .transform-result { background: var(--teal-soft); color: #12645f; }
+      .transform-check { display: flex; align-items: center; gap: 12px; margin-top: 22px; color: #687483; font-size: 21px; }
+      .transform-check span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #fff; background: var(--red); font-weight: 900; }
+      .transform-card.good .transform-check span { background: var(--teal); }
+      .acceptable { display: inline-flex; align-items: center; gap: 9px; margin-top: 28px; padding: 10px 15px; border-radius: 99px; color: var(--teal); background: var(--teal-soft); font-size: 19px; font-weight: 850; }
+      .transform-note { margin-top: 26px; color: #81909f; font-size: 19px; }
+
+      /* Scene 5: review */
+      .review-shell { position: absolute; inset: 0; padding: 92px 144px 78px; }
+      .review-heading { display: flex; align-items: start; justify-content: space-between; }
+      .review-title { margin: 11px 0 0; font-size: 64px; line-height: 1; letter-spacing: -.06em; }
+      .review-kicker { max-width: 440px; margin-top: 8px; color: #c5d5e0; font-size: 25px; line-height: 1.3; text-align: right; }
+      .manifest { position: absolute; left: 144px; top: 318px; width: 860px; padding: 25px; border: 2px solid #3c5970; border-radius: 18px; background: #1d3557; }
+      .manifest-title { color: #a9ece1; font-size: 19px; font-weight: 850; letter-spacing: .12em; }
+      .manifest-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding: 15px 16px; border-radius: 9px; background: #264360; color: #e8f0f5; font-size: 21px; }
+      .manifest-row span { color: #a9b9ca; font-size: 18px; }
+      .replay-proof { position: absolute; right: 144px; top: 318px; width: 580px; padding: 29px; border: 2px solid #3c5970; border-radius: 18px; background: #1d3557; }
+      .proof-row { display: flex; align-items: start; gap: 15px; margin-top: 26px; }
+      .proof-icon { display: grid; flex: 0 0 auto; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--deep); background: #62b9ad; font-size: 22px; font-weight: 900; }
+      .proof-row strong, .proof-row small { display: block; }
+      .proof-row strong { color: #fff; font-size: 23px; }
+      .proof-row small { margin-top: 5px; color: #a9b9ca; font-size: 18px; }
+      .no-original { position: absolute; left: 144px; right: 144px; bottom: 78px; display: flex; align-items: center; justify-content: space-between; padding-top: 25px; border-top: 2px solid #3c5970; color: #c5d5e0; font-size: 24px; }
+      .no-original strong { color: #a9ece1; }
+      .no-original .download { padding: 13px 20px; border-radius: 9px; color: var(--deep); background: var(--amber); font-size: 20px; font-weight: 850; }
+
+      /* Scene 6: outro */
+      .outro-wrap { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+      .outro-wrap .amber-mark { width: 86px; height: 86px; margin-bottom: 28px; font-size: 53px; }
+      .outro-title { max-width: 1260px; margin: 0; color: #fff; font-size: 92px; line-height: .97; letter-spacing: -.065em; font-weight: 840; }
+      .outro-title span { display: block; }
+      .outro-title em { color: #a9ece1; font-style: normal; }
+      .outro-sub { margin-top: 31px; color: #c5d5e0; font-size: 26px; }
+      .outro-wrap .stamp { margin-top: 35px; }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-at0g" id="root" data-composition-id="main" data-start="0" data-duration="20" data-width="1920" data-height="1080">
+      <section data-hf-id="hf-c36b" id="scene-hook" class="clip scene-light" data-start="0" data-duration="2.4" data-track-index="0">
+        <div data-hf-id="hf-l6w8" class="full-bleed"><div data-hf-id="hf-04wp" class="glow glow-a" data-layout-ignore></div><div data-hf-id="hf-4muq" class="glow glow-b" data-layout-ignore></div><div data-hf-id="hf-ryn8" class="grain" data-layout-ignore></div></div>
+        <div data-hf-id="hf-wghq" class="hook-wrap">
+          <div data-hf-id="hf-xc1l" class="hook-copy">
+            <p data-hf-id="hf-d2za" class="tiny-label hook-kicker">REPROSAFE · DEVELOPER TOOLS</p>
+            <h1 data-hf-id="hf-3ubu" class="headline"><span data-hf-id="hf-j2xd" id="hook-line-one" class="hook-line">The bug is real.</span><span data-hf-id="hf-f1b9" id="hook-line-two" class="hook-line secondary">The customer data doesn’t have to be.</span></h1>
+            <div data-hf-id="hf-r05u" id="hook-marker" class="hook-marker"><b data-hf-id="hf-zhjg">!</b><span data-hf-id="hf-2ndr">REPROSAFE_TARGET_FAILURE</span></div>
+          </div>
+        </div>
+        <div data-hf-id="hf-45cz" class="corner-mark"><div data-hf-id="hf-lw3h" class="amber-mark">R</div><span data-hf-id="hf-0i0f">LOCAL-FIRST</span></div>
+      </section>
+
+      <section data-hf-id="hf-u24z" id="scene-reproduce" class="clip scene-light" data-start="2.4" data-duration="3.4" data-track-index="1">
+        <div data-hf-id="hf-f0o0" class="full-bleed"><div data-hf-id="hf-k5gt" class="glow glow-a" data-layout-ignore></div><div data-hf-id="hf-myye" class="glow glow-b" data-layout-ignore></div></div>
+        <div data-hf-id="hf-ub7v" class="ui-window" id="reproduce-window">
+          <div data-hf-id="hf-xokb" class="ui-topbar"><div data-hf-id="hf-xc9e" class="ui-brand"><span data-hf-id="hf-iy2s" class="mini-mark">R</span><span data-hf-id="hf-u8fu">ReproSafe</span></div><span data-hf-id="hf-3213" class="ui-privacy">Original inputs never leave this session</span></div>
+          <div data-hf-id="hf-3u1j" class="ui-body">
+            <div data-hf-id="hf-baub" class="ui-eyebrow">NORTHSTAR BILLING · FICTIONAL DEMO</div>
+            <div data-hf-id="hf-x6s4" class="ui-title">Reproduce the failure before you reduce it.</div>
+            <div data-hf-id="hf-wsus" class="journey">
+              <div data-hf-id="hf-xc7b" class="journey-step active"><span data-hf-id="hf-ejt0" class="step-dot">1</span><strong data-hf-id="hf-qstl">Reproduce</strong></div><div data-hf-id="hf-ls8r" class="journey-line"></div>
+              <div data-hf-id="hf-ptkr" class="journey-step"><span data-hf-id="hf-dcvx" class="step-dot">2</span><strong data-hf-id="hf-myls">Reduce</strong></div><div data-hf-id="hf-qrqz" class="journey-line"></div>
+              <div data-hf-id="hf-ygu3" class="journey-step"><span data-hf-id="hf-dr6y" class="step-dot">3</span><strong data-hf-id="hf-ucz6">Transform</strong></div><div data-hf-id="hf-qdfy" class="journey-line"></div>
+              <div data-hf-id="hf-y2j2" class="journey-step"><span data-hf-id="hf-fqq3" class="step-dot">4</span><strong data-hf-id="hf-s57a">Review &amp; export</strong></div>
+            </div>
+            <div data-hf-id="hf-g620" class="evidence-grid"><div data-hf-id="hf-g9tt" class="evidence-card good"><div data-hf-id="hf-wxk3" class="card-label">EXPECTED</div><div data-hf-id="hf-nlrq" class="card-title">HTTP 200 · Total calculated</div><div data-hf-id="hf-d7iu" class="card-sub">Return USD 199.00 for two observability seats.</div></div><div data-hf-id="hf-a5eh" class="evidence-card target"><div data-hf-id="hf-5jnv" class="card-label">OBSERVED</div><div data-hf-id="hf-cco6" class="card-title">HTTP 500 · Parser error</div><div data-hf-id="hf-r1gq" class="card-sub">A deterministic fictional defect is waiting to be reproduced.</div></div></div>
+            <div data-hf-id="hf-3okr" id="run-button" class="run-button">▶ Run example</div>
+            <div data-hf-id="hf-e5cu" id="failure-banner" class="failure-banner"><span data-hf-id="hf-xyi0" class="failure-icon">!</span><span data-hf-id="hf-9sdq">Target failure reproduced · <span data-hf-id="hf-u55q" class="mono">REPROSAFE_TARGET_FAILURE</span></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-bnwj" id="scene-reduce" class="clip scene-light" data-start="5.8" data-duration="4.2" data-track-index="2">
+        <div data-hf-id="hf-dtqx" class="full-bleed"><div data-hf-id="hf-lcdw" class="glow glow-a" data-layout-ignore></div><div data-hf-id="hf-nd9f" class="glow glow-b" data-layout-ignore></div></div>
+        <div data-hf-id="hf-yx9a" class="reduce-panel" id="reduce-panel">
+          <div data-hf-id="hf-8d19" class="reduce-head"><div data-hf-id="hf-yeow"><div data-hf-id="hf-9o61" class="tiny-label">PHASE 2 · REDUCE</div><h2 data-hf-id="hf-g1at" class="reduce-title">Find a smaller candidate.</h2></div><div data-hf-id="hf-cdpw" class="not-run">Disclosure: Not run</div></div>
+          <div data-hf-id="hf-s77k" class="size-row"><div data-hf-id="hf-9pjj" class="size-block"><div data-hf-id="hf-f9gm" class="size-label">ORIGINAL SIZE</div><div data-hf-id="hf-l8b5" class="size-value">1,643</div></div><div data-hf-id="hf-9j9b" class="size-arrow">→</div><div data-hf-id="hf-w1bj" class="size-block"><div data-hf-id="hf-jog4" class="size-label">CANDIDATE SIZE</div><div data-hf-id="hf-1cfx" class="size-value teal">992</div></div><div data-hf-id="hf-1q4v" class="size-label" style="padding-bottom: 17px;">BYTES</div></div>
+          <div data-hf-id="hf-lxwj" class="progress-track"><div data-hf-id="hf-2bld" id="reduce-fill" class="progress-fill"></div></div>
+          <div data-hf-id="hf-kgfk" class="checks-row"><div data-hf-id="hf-5ymg" class="check-chip"><i data-hf-id="hf-q7i5">✓</i> customer.name removed</div><div data-hf-id="hf-wv9q" class="check-chip"><i data-hf-id="hf-qrv5">✓</i> payment.card_last4 removed</div><div data-hf-id="hf-90ct" class="check-chip"><i data-hf-id="hf-rys8">✓</i> target failure still present</div></div>
+          <div data-hf-id="hf-eq1m" class="reduce-footer"><span data-hf-id="hf-l4n3">Every accepted change was executed.</span><strong data-hf-id="hf-52x9">Not mathematically minimal.</strong></div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-0pcm" id="scene-transform" class="clip scene-light" data-start="10" data-duration="4.2" data-track-index="3">
+        <div data-hf-id="hf-e81y" class="full-bleed"><div data-hf-id="hf-ky2v" class="glow glow-a" data-layout-ignore></div><div data-hf-id="hf-nrkg" class="glow glow-b" data-layout-ignore></div></div>
+        <div data-hf-id="hf-szw1" class="transform-wrap">
+          <div data-hf-id="hf-u8ph" class="transform-heading"><div data-hf-id="hf-y7yw"><div data-hf-id="hf-qpvi" class="tiny-label">PHASE 3 · TRANSFORM</div><h2 data-hf-id="hf-8s2u" class="transform-title">Reproducibility and disclosure.</h2></div><p data-hf-id="hf-tgvm" class="transform-sub">Two checks. One acceptable candidate.</p></div>
+          <div data-hf-id="hf-r4fh" class="transform-grid">
+            <article data-hf-id="hf-5xbq" class="transform-card" id="redaction-card"><div data-hf-id="hf-tzko" class="card-label">ORDINARY REDACTION</div><h3 data-hf-id="hf-drgk">Replace with [REDACTED]</h3><p data-hf-id="hf-jcwi">Disclosure passes. The bug disappears.</p><div data-hf-id="hf-9fhm" class="transform-result">Target failure absent</div><div data-hf-id="hf-c338" class="transform-check"><span data-hf-id="hf-v48y">×</span> Reproducibility failed</div></article>
+            <article data-hf-id="hf-gf9f" class="transform-card good" id="synthetic-card"><div data-hf-id="hf-mmh6" class="card-label">STRUCTURE-PRESERVING VALUES</div><h3 data-hf-id="hf-l3cj">Use fictional equivalents</h3><p data-hf-id="hf-56si">Configured originals are gone. The shape stays useful.</p><div data-hf-id="hf-jnly" class="transform-result">Target failure reproduced</div><div data-hf-id="hf-f15x" class="transform-check"><span data-hf-id="hf-ls52">✓</span> Disclosure checks passed</div><div data-hf-id="hf-3chi" class="acceptable">✓ Acceptable candidate</div></article>
+          </div>
+          <div data-hf-id="hf-63xi" class="transform-note">Exact configured values checked only · passing this does not prove universal anonymity</div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-vqzc" id="scene-review" class="clip scene-dark" data-start="14.2" data-duration="3.8" data-track-index="4">
+        <div data-hf-id="hf-d14v" class="full-bleed"><div data-hf-id="hf-3b07" class="dark-glow" data-layout-ignore></div><div data-hf-id="hf-d1hy" class="dark-glow-two" data-layout-ignore></div><div data-hf-id="hf-3obg" class="grain" data-layout-ignore></div></div>
+        <div data-hf-id="hf-5phh" class="review-shell">
+          <div data-hf-id="hf-wwfh" class="review-heading"><div data-hf-id="hf-x11t"><div data-hf-id="hf-ixrn" class="tiny-label light">PHASE 4 · REVIEW &amp; EXPORT</div><h2 data-hf-id="hf-ro9r" class="review-title">Review exactly what will leave.</h2></div><p data-hf-id="hf-3h88" class="review-kicker">A clean replay, a clear evidence report, and never the original input.</p></div>
+          <div data-hf-id="hf-3y8i" class="manifest" id="manifest"><div data-hf-id="hf-nmr5" class="manifest-title">REPROSAFE-NORTHSTAR-VERIFIED.ZIP</div><div data-hf-id="hf-23l8" class="manifest-row"><strong data-hf-id="hf-fgp5">request.json</strong><span data-hf-id="hf-tza7">transformed request only</span></div><div data-hf-id="hf-gock" class="manifest-row"><strong data-hf-id="hf-zav2">replay.py</strong><span data-hf-id="hf-rxpe">standard-library clean replay</span></div><div data-hf-id="hf-fhfh" class="manifest-row"><strong data-hf-id="hf-qn1o">evidence-report.json</strong><span data-hf-id="hf-z5m0">checks, retained info, limits</span></div><div data-hf-id="hf-fvqi" class="manifest-row"><strong data-hf-id="hf-mslc">manifest.json + README.txt</strong><span data-hf-id="hf-4w98">package boundary + commands</span></div></div>
+          <div data-hf-id="hf-gkia" class="replay-proof" id="replay-proof"><div data-hf-id="hf-78jr" class="manifest-title">INDEPENDENT REPLAY</div><div data-hf-id="hf-culx" class="proof-row"><span data-hf-id="hf-lgau" class="proof-icon">✓</span><span data-hf-id="hf-uckh"><strong data-hf-id="hf-tp8u">Defect mode</strong><small data-hf-id="hf-9u5k">HTTP 500 · REPROSAFE_TARGET_FAILURE</small></span></div><div data-hf-id="hf-u2i1" class="proof-row"><span data-hf-id="hf-2gne" class="proof-icon">✓</span><span data-hf-id="hf-l73p"><strong data-hf-id="hf-vqi7">Fixed mode</strong><small data-hf-id="hf-inqu">HTTP 200 · total 199.00</small></span></div></div>
+          <div data-hf-id="hf-toz8" id="no-original" class="no-original"><span data-hf-id="hf-20u8"><span data-hf-id="hf-dqc0">⌑</span> Original input included: <strong data-hf-id="hf-f8hl">no</strong></span><span data-hf-id="hf-25eh" class="download">↓ Verified package ready</span></div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-z2kt" id="scene-outro" class="clip scene-dark" data-start="18" data-duration="2" data-track-index="5">
+        <div data-hf-id="hf-dffw" class="full-bleed"><div data-hf-id="hf-pjef" class="dark-glow" data-layout-ignore></div><div data-hf-id="hf-97lm" class="dark-glow-two" data-layout-ignore></div><div data-hf-id="hf-2hed" class="grain" data-layout-ignore></div></div>
+        <div data-hf-id="hf-qq1q" class="outro-wrap"><div data-hf-id="hf-hb9g" class="amber-mark" id="outro-mark">R</div><h2 data-hf-id="hf-ipxx" class="outro-title" id="outro-title"><span data-hf-id="hf-ntw9">Share the bug.</span><span data-hf-id="hf-me0s"><em data-hf-id="hf-z4ff">Not the customer data.</em></span></h2><p data-hf-id="hf-zort" class="outro-sub">ReproSafe · verified locally</p><div data-hf-id="hf-425p" class="stamp"><span data-hf-id="hf-cj0s" class="stamp-dot"></span> VERIFIED LOCALLY</div></div>
+      </section>
+
+      <audio data-hf-id="hf-pkxl" id="bg-music" data-start="0" data-duration="20" data-track-index="10" data-volume="0.30" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+      <audio data-hf-id="hf-tprx" id="sfx-click" data-start="1.12" data-duration="0.01" data-track-index="11" data-volume="0.62" src="assets/sfx/interface/click_003.ogg"></audio>
+      <audio data-hf-id="hf-h7mk" id="sfx-failure" data-start="4.82" data-duration="0.19" data-track-index="12" data-volume="0.55" src="assets/sfx/impact/impactSoft_medium_001.ogg"></audio>
+      <audio data-hf-id="hf-pg27" id="sfx-success" data-start="13.15" data-duration="0.13" data-track-index="13" data-volume="0.55" src="assets/sfx/interface/bong_001.ogg"></audio>
+      <audio data-hf-id="hf-85u6" id="sfx-export" data-start="17.45" data-duration="0.13" data-track-index="14" data-volume="0.62" src="assets/sfx/interface/bong_001.ogg"></audio>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const from = (selector, start, duration, vars, ease = "power3.out") => {
+        tl.fromTo(selector, { opacity: 0, ...vars.from }, { opacity: 1, ...vars.to, duration, ease }, start);
+      };
+
+      /* Hook: opposing lines establish the privacy/repro tension. */
+      from(".hook-kicker", 0.16, 0.32, { from: { x: -28 }, to: { x: 0 } }, "power2.out");
+      from("#hook-line-one", 0.28, 0.48, { from: { x: -80 }, to: { x: 0 } }, "expo.out");
+      from("#hook-line-two", 0.76, 0.55, { from: { x: 96 }, to: { x: 0 } }, "power4.out");
+      from("#hook-marker", 1.38, 0.28, { from: { scale: 0.72, y: 16 }, to: { scale: 1, y: 0 } }, "back.out(1.8)");
+      tl.to(".glow-a", { scale: 1.08, x: 18, duration: 2.2, ease: "sine.inOut" }, 0.1);
+      tl.to(".glow-b", { scale: 1.06, x: -14, duration: 2.1, ease: "sine.inOut" }, 0.2);
+
+      /* Reproduce: a concrete view of the working app, then its proof state. */
+      from("#reproduce-window", 2.45, 0.58, { from: { y: 74, scale: 0.96 }, to: { y: 0, scale: 1 } }, "power3.out");
+      from("#reproduce-window .ui-brand", 2.82, 0.36, { from: { x: -26 }, to: { x: 0 } }, "power2.out");
+      from("#reproduce-window .journey-step", 3.14, 0.34, { from: { y: 18 }, to: { y: 0 } }, "back.out(1.4)");
+      from("#reproduce-window .evidence-card", 3.48, 0.42, { from: { y: 26, scale: 0.98 }, to: { y: 0, scale: 1 } }, "power3.out");
+      from("#run-button", 4.0, 0.24, { from: { scale: 0.86 }, to: { scale: 1 } }, "back.out(2)");
+      tl.to("#run-button", { opacity: 0, duration: 0.18, ease: "power2.in" }, 4.34);
+      from("#failure-banner", 4.48, 0.3, { from: { x: -24 }, to: { x: 0 } }, "power2.out");
+
+      /* Reduce: progress and proof rows resolve left-to-right. */
+      from("#reduce-panel", 5.86, 0.54, { from: { x: 90, opacity: 0 }, to: { x: 0 } }, "power3.out");
+      from("#reduce-panel .not-run", 6.28, 0.28, { from: { scale: 0.8 }, to: { scale: 1 } }, "back.out(1.5)");
+      from("#reduce-panel .size-block", 6.52, 0.45, { from: { y: 28 }, to: { y: 0 } }, "power2.out");
+      from("#reduce-panel .size-arrow", 6.82, 0.24, { from: { scale: 0.6 }, to: { scale: 1 } }, "back.out(1.7)");
+      tl.to("#reduce-fill", { width: "100%", duration: 1.15, ease: "power2.inOut" }, 7.12);
+      from("#reduce-panel .check-chip", 7.42, 0.34, { from: { x: -24 }, to: { x: 0 } }, "power2.out");
+      from("#reduce-panel .reduce-footer", 8.28, 0.32, { from: { y: 16 }, to: { y: 0 } }, "power3.out");
+
+      /* Transform: the naive path fails; the synthetic path survives both checks. */
+      from("#scene-transform .transform-heading", 10.08, 0.42, { from: { y: -28 }, to: { y: 0 } }, "power3.out");
+      from("#redaction-card", 10.52, 0.5, { from: { x: -62, rotation: -1.5 }, to: { x: 0, rotation: 0 } }, "power3.out");
+      from("#synthetic-card", 10.78, 0.58, { from: { x: 62, rotation: 1.5 }, to: { x: 0, rotation: 0 } }, "expo.out");
+      from("#redaction-card .transform-result", 11.2, 0.3, { from: { scale: 0.86 }, to: { scale: 1 } }, "back.out(1.5)");
+      from("#synthetic-card .transform-result", 11.52, 0.3, { from: { scale: 0.86 }, to: { scale: 1 } }, "back.out(1.5)");
+      from("#synthetic-card .acceptable", 12.18, 0.28, { from: { y: 14 }, to: { y: 0 } }, "power2.out");
+      from("#scene-transform .transform-note", 12.72, 0.3, { from: { opacity: 0 }, to: {} }, "sine.out");
+
+      /* Review: manifest, independent replay, then the boundary decision. */
+      from("#scene-review .review-heading", 14.26, 0.42, { from: { y: 28 }, to: { y: 0 } }, "power3.out");
+      from("#manifest", 14.66, 0.54, { from: { x: -64 }, to: { x: 0 } }, "power3.out");
+      from("#manifest .manifest-row", 14.98, 0.34, { from: { x: -22 }, to: { x: 0 } }, "power2.out");
+      from("#replay-proof", 15.18, 0.52, { from: { x: 64 }, to: { x: 0 } }, "expo.out");
+      from("#no-original", 16.7, 0.36, { from: { y: 26 }, to: { y: 0 } }, "back.out(1.3)");
+
+      /* Outro: a settled judge-facing lockup. */
+      from("#outro-mark", 18.08, 0.34, { from: { scale: 0.72, rotation: -12 }, to: { scale: 1, rotation: 0 } }, "back.out(1.7)");
+      from("#outro-title", 18.36, 0.46, { from: { y: 34 }, to: { y: 0 } }, "power3.out");
+      from("#scene-outro .outro-sub", 18.78, 0.3, { from: { opacity: 0 }, to: {} }, "sine.out");
+      from("#scene-outro .stamp", 19.04, 0.3, { from: { scale: 0.82 }, to: { scale: 1 } }, "back.out(1.4)");
+      tl.to("#scene-outro .dark-glow", { scale: 1.07, x: -14, duration: 1.75, ease: "sine.inOut" }, 18.08);
+      tl.to("#scene-outro .dark-glow-two", { scale: 1.06, x: 12, duration: 1.65, ease: "sine.inOut" }, 18.16);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
