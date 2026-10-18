@@ -1,9 +1,14 @@
 import copy
+import io
 import json
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
+from zipfile import ZipFile
 
-from server import case_size, disclosure_check, execute_case, load_fixture, reduce_case, transform_case_report
+from server import build_export, case_size, disclosure_check, execute_case, load_fixture, reduce_case, transform_case_report
 
 
 class ReproductionEngineTests(unittest.TestCase):
@@ -101,6 +106,25 @@ class ReproductionEngineTests(unittest.TestCase):
 
         self.assertEqual(disclosure["kind"], "failed")
         self.assertEqual(disclosure["leaked_paths"], paths)
+
+    def test_export_is_safe_and_replays_in_defect_and_fixed_modes(self):
+        paths = self.fixture["disclosure"]["sensitive_paths"]
+        package, evidence = build_export(self.fixture, paths)
+        original_email = self.fixture["request"]["customer"]["email"]
+
+        with ZipFile(io.BytesIO(package)) as archive:
+            names = sorted(archive.namelist())
+            self.assertEqual(names, ["README.txt", "evidence-report.json", "manifest.json", "replay.py", "request.json"])
+            all_bytes = b"".join(archive.read(name) for name in names)
+            self.assertNotIn(original_email.encode(), all_bytes)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                archive.extractall(temp_dir)
+                defect = subprocess.run([sys.executable, "replay.py", "--input", "request.json"], cwd=temp_dir, text=True, capture_output=True, check=True)
+                fixed = subprocess.run([sys.executable, "replay.py", "--input", "request.json", "--fixed"], cwd=temp_dir, text=True, capture_output=True, check=True)
+
+        self.assertEqual(json.loads(defect.stdout)["error_code"], "REPROSAFE_TARGET_FAILURE")
+        self.assertEqual(json.loads(fixed.stdout)["status"], 200)
+        self.assertFalse(evidence["original_input_included"])
 
 
 if __name__ == "__main__":

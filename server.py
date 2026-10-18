@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
 import time
 from copy import deepcopy
@@ -12,6 +14,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
 ROOT = Path(__file__).parent
@@ -297,6 +300,99 @@ def transform_case_report(case: dict[str, Any], paths: list[str], strategy: str)
     }
 
 
+def _replay_script() -> str:
+    return '''#!/usr/bin/env python3
+"""ReproSafe clean-environment replay; standard library only."""
+import argparse
+import json
+
+
+def run(request, fixed=False):
+    email = request["customer"]["email"].strip().lower()
+    total = sum(item["quantity"] * item["unit_price"] for item in request["invoice"]["line_items"])
+    if not fixed and email.endswith(".example"):
+        return {"status": 500, "error_code": "REPROSAFE_TARGET_FAILURE", "message": "billing context could not be parsed"}
+    return {"status": 200, "total": round(total, 2), "currency": request["invoice"]["currency"]}
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default="request.json")
+    parser.add_argument("--fixed", action="store_true", help="replay after the fictional defect is fixed")
+    args = parser.parse_args()
+    with open(args.input, encoding="utf-8") as handle:
+        request = json.load(handle)
+    print(json.dumps(run(request, fixed=args.fixed), indent=2, sort_keys=True))
+'''
+
+
+def _export_files(case: dict[str, Any], paths: list[str], strategy: str) -> tuple[dict[str, bytes], dict[str, Any]]:
+    transformed = transform_case(case, paths, strategy)
+    reproduction = execute_case(transformed)
+    disclosure = disclosure_check(case, transformed, paths)
+    if reproduction["kind"] != "target-failure" or disclosure["kind"] != "passed":
+        raise ValueError("No acceptable transformed candidate is available for export")
+    request_text = compact_json(transformed["request"])
+    replay = _replay_script()
+    # The replay's --fixed behavior is intentionally recorded separately from
+    # the defect-mode local execution. It must return the expected 200 result.
+    expected_total = round(sum(item["quantity"] * item["unit_price"] for item in transformed["request"]["invoice"]["line_items"]), 2)
+    evidence = {
+        "report_version": "1",
+        "target": "REPROSAFE_TARGET_FAILURE",
+        "reproduction": {"status": "passed", "classification": reproduction["kind"], "error_code": reproduction["details"]["error_code"]},
+        "fixed_reproduction": {"status": "passed", "classification": "success", "expected_status": 200, "expected_total": expected_total},
+        "disclosure": {"status": disclosure["kind"], "checked_paths": disclosure["checked_paths"], "leaked_paths": disclosure["leaked_paths"]},
+        "retained_information": ["request shape", "invoice line-item arithmetic", "target domain shape (.example)", "reproduction steps"],
+        "limits": ["Checks only configured exact sensitive values.", "A passing report does not prove universal anonymity.", "The replay is a fictional standard-library simulator, not the original production service."],
+        "original_input_included": False,
+    }
+    manifest = {
+        "format": "reprosafe-package/v1",
+        "strategy": strategy,
+        "files": ["README.txt", "request.json", "replay.py", "evidence-report.json", "manifest.json"],
+        "original_input_included": False,
+    }
+    readme = """ReproSafe verified reproduction\n\nRun in Python 3.12+:\n  python3 replay.py --input request.json\n\nThe command should return HTTP 500 with REPROSAFE_TARGET_FAILURE.\nTo replay after the demonstrated fictional defect is fixed:\n  python3 replay.py --input request.json --fixed\n\nThe fixed command should return HTTP 200 and total 199.00.\nSee evidence-report.json for the checks and their limits.\n"""
+    files = {
+        "README.txt": readme.encode("utf-8"),
+        "request.json": request_text.encode("utf-8"),
+        "replay.py": replay.encode("utf-8"),
+        "evidence-report.json": compact_json(evidence).encode("utf-8"),
+        "manifest.json": compact_json(manifest).encode("utf-8"),
+    }
+    return files, evidence
+
+
+def build_export(case: dict[str, Any], paths: list[str], strategy: str = "synthetic") -> tuple[bytes, dict[str, Any]]:
+    files, evidence = _export_files(case, paths, strategy)
+    output = io.BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        for name in sorted(files):
+            info = ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, files[name])
+    return output.getvalue(), evidence
+
+
+def export_review(case: dict[str, Any], paths: list[str], strategy: str = "synthetic") -> dict[str, Any]:
+    files, evidence = _export_files(case, paths, strategy)
+    return {
+        "filename": "reprosafe-northstar-verified.zip",
+        "files": [{"name": name, "bytes": len(content), "purpose": {
+            "README.txt": "exact clean-environment commands",
+            "request.json": "transformed request only",
+            "replay.py": "standard-library fictional replay",
+            "evidence-report.json": "reproducibility, disclosure, retained information, and limits",
+            "manifest.json": "package contents and safety boundary",
+        }[name]} for name, content in sorted(files.items())],
+        "outbound_summary": "Only the transformed request, replay instructions, supporting script, manifest, and evidence report leave this local environment.",
+        "original_input_included": False,
+        "evidence": evidence,
+    }
+
+
 class ReproSafeHandler(BaseHTTPRequestHandler):
     server_version = "ReproSafe/0.1"
 
@@ -335,7 +431,7 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path not in {"/api/run", "/api/reduce", "/api/transform"}:
+        if path not in {"/api/run", "/api/reduce", "/api/transform", "/api/export-review", "/api/export"}:
             self._send_json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -357,14 +453,30 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
                     paths = payload.get("paths")
                     if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
                         raise ValueError("body.paths must be a list of strings")
-                    self._send_json({
-                        "reports": [
-                            transform_case_report(case, paths, "redact"),
-                            transform_case_report(case, paths, "synthetic"),
-                        ]
-                    })
+                    if path == "/api/transform":
+                        self._send_json({
+                            "reports": [
+                                transform_case_report(case, paths, "redact"),
+                                transform_case_report(case, paths, "synthetic"),
+                            ]
+                        })
+                    else:
+                        strategy = payload.get("strategy", "synthetic")
+                        if not isinstance(strategy, str):
+                            raise ValueError("body.strategy must be a string")
+                        if path == "/api/export-review":
+                            self._send_json({"review": export_review(case, paths, strategy)})
+                        else:
+                            package, evidence = build_export(case, paths, strategy)
+                            self.send_response(HTTPStatus.OK)
+                            self.send_header("Content-Type", "application/zip")
+                            self.send_header("Content-Disposition", 'attachment; filename="reprosafe-northstar-verified.zip"')
+                            self.send_header("X-ReproSafe-Evidence", hashlib.sha256(compact_json(evidence).encode()).hexdigest())
+                            self.send_header("Content-Length", str(len(package)))
+                            self.end_headers()
+                            self.wfile.write(package)
         except (ValueError, json.JSONDecodeError) as exc:
-            self._send_json({"result": _result("execution-error", "Execution error", str(exc), time.perf_counter())}, HTTPStatus.BAD_REQUEST)
+            self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
     def log_message(self, fmt: str, *args: Any) -> None:
         # Keep the local demo quiet; errors still surface in the UI response.

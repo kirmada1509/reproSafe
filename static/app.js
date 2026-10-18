@@ -1,4 +1,4 @@
-const state = { example: null, candidate: null, disclosurePaths: [], reductionController: null, reductionRun: 0, transformReport: null };
+const state = { example: null, candidate: null, disclosurePaths: [], reductionController: null, reductionRun: 0, transformReport: null, exportSource: null, exportPaths: [], exportStrategy: "synthetic" };
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -39,6 +39,45 @@ function unlockTransform() {
   step.classList.add("active");
   $("#transform-panel").classList.remove("hidden");
   renderSensitivePaths();
+}
+
+function unlockReview() {
+  const step = $("#step-review");
+  step.classList.remove("locked");
+  step.removeAttribute("aria-disabled");
+  step.classList.add("active");
+  $("#review-panel").classList.remove("hidden");
+}
+
+function renderExportReview(review) {
+  $("#outbound-summary").textContent = review.outbound_summary;
+  const list = $("#export-files");
+  list.replaceChildren();
+  review.files.forEach((file) => {
+    const item = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = file.name;
+    const purpose = document.createElement("span");
+    purpose.textContent = file.purpose;
+    item.append(name, purpose);
+    list.appendChild(item);
+  });
+}
+
+async function loadExportReview() {
+  try {
+    const response = await fetch("/api/export-review", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ case: state.exportSource, paths: state.exportPaths, strategy: state.exportStrategy })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.review) throw new Error(payload.error || "Export review unavailable");
+    renderExportReview(payload.review);
+  } catch (error) {
+    $("#outbound-summary").textContent = error.message;
+    $("#export-button").disabled = true;
+  }
 }
 
 function renderSensitivePaths() {
@@ -245,6 +284,11 @@ async function transformExample() {
     results.classList.remove("hidden");
     const accepted = payload.reports.find((report) => report.acceptable);
     if (accepted) {
+      state.exportSource = caseToTransform;
+      state.exportPaths = paths;
+      state.exportStrategy = accepted.strategy;
+      unlockReview();
+      await loadExportReview();
       showStatus("success", "Configured disclosure checks passed", "The synthetic candidate preserves the target failure and removes the configured original values. Review is still required.", "✓");
     } else {
       showStatus("error", "No acceptable candidate found", "The configured transformations did not satisfy both reproducibility and disclosure checks.", "×");
@@ -257,8 +301,45 @@ async function transformExample() {
   }
 }
 
+async function exportPackage() {
+  if (!state.exportSource) return;
+  const button = $("#export-button");
+  button.disabled = true;
+  button.innerHTML = "<span aria-hidden=\"true\">◌</span> Preparing package…";
+  $("#export-message").textContent = "Building and verifying the ZIP locally…";
+  try {
+    const response = await fetch("/api/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ case: state.exportSource, paths: state.exportPaths, strategy: state.exportStrategy })
+    });
+    if (!response.ok) {
+      const payload = await response.json();
+      throw new Error(payload.error || "Export failed");
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "reprosafe-northstar-verified.zip";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    $("#export-message").textContent = "Verified package ready: the download contains no original input.";
+    showStatus("success", "Export package created", "The ZIP contains the transformed request, clean replay, supporting files, and evidence report.", "✓");
+  } catch (error) {
+    $("#export-message").textContent = error.message;
+    showStatus("error", "Export failed", error.message, "×");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = "<span aria-hidden=\"true\">↓</span> Download verified package";
+  }
+}
+
 $("#run-button").addEventListener("click", runExample);
 $("#reduce-button").addEventListener("click", reduceExample);
 $("#cancel-button").addEventListener("click", cancelReduction);
 $("#transform-button").addEventListener("click", transformExample);
+$("#export-button").addEventListener("click", exportPackage);
 loadExample();

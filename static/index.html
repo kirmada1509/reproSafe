@@ -43,7 +43,7 @@
         <div class="journey-connector"></div>
         <div id="step-transform" class="journey-step locked" aria-disabled="true"><span class="step-number">3</span><span><strong>Transform</strong><small>Apply disclosure rules</small></span></div>
         <div class="journey-connector"></div>
-        <div class="journey-step locked" aria-disabled="true"><span class="step-number">4</span><span><strong>Review &amp; export</strong><small>Inspect what leaves</small></span></div>
+        <div id="step-review" class="journey-step locked" aria-disabled="true"><span class="step-number">4</span><span><strong>Review &amp; export</strong><small>Inspect what leaves</small></span></div>
       </nav>
 
       <div id="status" class="status-banner neutral" role="status" aria-live="polite">
@@ -151,6 +151,16 @@
           <p class="field-help">These configured values are checked for exact absence in the proposed JSON. Passing this list does not prove universal anonymity.</p>
         </fieldset>
         <div id="transform-results" class="transform-results hidden" aria-live="polite"></div>
+      </section>
+
+      <section id="review-panel" class="review-panel hidden" aria-labelledby="review-heading">
+        <div class="review-intro"><div><p class="panel-kicker">PHASE 4 · REVIEW &amp; EXPORT</p><h3 id="review-heading">Review exactly what will leave</h3><p>This is the final boundary check. The package contains the transformed request and a clean replay, never the original fixture.</p></div><span class="review-required"><span aria-hidden="true">!</span> Review required</span></div>
+        <div class="review-grid">
+          <div class="outbound-card"><p class="panel-kicker">EXPORT PACKAGE</p><h4>reprosafe-northstar-verified.zip</h4><p id="outbound-summary" class="review-copy">Loading package manifest…</p><ul id="export-files" class="export-files"></ul></div>
+          <div class="evidence-card"><p class="panel-kicker">INDEPENDENT REPLAY</p><h4>Clean supported environment</h4><div class="replay-check"><span class="replay-icon pass" aria-hidden="true">✓</span><span><strong>Defect mode</strong><small>HTTP 500 · REPROSAFE_TARGET_FAILURE</small></span></div><div class="replay-check"><span class="replay-icon pass" aria-hidden="true">✓</span><span><strong>Fixed mode</strong><small>HTTP 200 · total 199.00</small></span></div><p class="review-copy">The evidence report records both commands, configured checks, retained information, and limits.</p></div>
+        </div>
+        <div class="review-actions"><p><span aria-hidden="true">⌑</span> Original input included: <strong>no</strong></p><button id="export-button" class="primary-button" type="button"><span aria-hidden="true">↓</span> Download verified package</button></div>
+        <p id="export-message" class="export-message" role="status" aria-live="polite"></p>
       </section>
 
       <section class="taxonomy" aria-labelledby="taxonomy-heading">
