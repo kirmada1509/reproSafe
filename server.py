@@ -312,7 +312,7 @@ def run(request, fixed=False):
     total = sum(item["quantity"] * item["unit_price"] for item in request["invoice"]["line_items"])
     if not fixed and email.endswith(".example"):
         return {"status": 500, "error_code": "REPROSAFE_TARGET_FAILURE", "message": "billing context could not be parsed"}
-    return {"status": 200, "total": round(total, 2), "currency": request["invoice"]["currency"]}
+    return {"status": 200, "total": round(total, 2), "currency": request["invoice"].get("currency", "USD")}
 
 
 if __name__ == "__main__":
@@ -332,7 +332,7 @@ def replay_result(request: dict[str, Any], *, fixed: bool = False) -> dict[str, 
     total = sum(item["quantity"] * item["unit_price"] for item in request["invoice"]["line_items"])
     if not fixed and email.endswith(".example"):
         return {"status": 500, "error_code": TARGET_CODE, "message": "billing context could not be parsed"}
-    return {"status": 200, "total": round(total, 2), "currency": request["invoice"]["currency"]}
+    return {"status": 200, "total": round(total, 2), "currency": request["invoice"].get("currency", "USD")}
 
 
 def _export_files(case: dict[str, Any], paths: list[str], strategy: str) -> tuple[dict[str, bytes], dict[str, Any]]:
@@ -489,6 +489,8 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
                             self.wfile.write(package)
         except (ValueError, json.JSONDecodeError) as exc:
             self._send_json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+        except Exception as exc:  # Keep client-visible failures from becoming dropped connections.
+            self._send_json({"error": f"Local export failed: {exc}"}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
     def log_message(self, fmt: str, *args: Any) -> None:
         # Keep the local demo quiet; errors still surface in the UI response.

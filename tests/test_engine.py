@@ -126,6 +126,15 @@ class ReproductionEngineTests(unittest.TestCase):
         self.assertEqual(json.loads(fixed.stdout)["status"], 200)
         self.assertFalse(evidence["original_input_included"])
 
+    def test_export_accepts_the_reduced_candidate(self):
+        paths = self.fixture["disclosure"]["sensitive_paths"]
+        reduced = reduce_case(self.fixture)["candidate"]
+
+        package, evidence = build_export(reduced, paths)
+
+        self.assertGreater(len(package), 0)
+        self.assertEqual(evidence["fixed_reproduction"]["expected_total"], 199.0)
+
 
 if __name__ == "__main__":
     unittest.main()
