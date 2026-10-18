@@ -1,4 +1,4 @@
-const state = { example: null, candidate: null, reductionController: null, reductionRun: 0 };
+const state = { example: null, candidate: null, disclosurePaths: [], reductionController: null, reductionRun: 0, transformReport: null };
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -32,12 +32,39 @@ function unlockReduction() {
   $("#reduction-panel").classList.remove("hidden");
 }
 
+function unlockTransform() {
+  const step = $("#step-transform");
+  step.classList.remove("locked");
+  step.removeAttribute("aria-disabled");
+  step.classList.add("active");
+  $("#transform-panel").classList.remove("hidden");
+  renderSensitivePaths();
+}
+
+function renderSensitivePaths() {
+  const container = $("#sensitive-paths");
+  container.replaceChildren();
+  state.disclosurePaths.forEach((path) => {
+    const label = document.createElement("label");
+    label.className = "path-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = path;
+    checkbox.checked = true;
+    const text = document.createElement("span");
+    text.textContent = path;
+    label.append(checkbox, text);
+    container.appendChild(label);
+  });
+}
+
 async function loadExample() {
   try {
     const response = await fetch("/api/example", { cache: "no-store" });
     if (!response.ok) throw new Error(`Example load failed (${response.status})`);
     const payload = await response.json();
     state.example = payload.case;
+    state.disclosurePaths = state.example.disclosure.sensitive_paths;
     const request = { request: state.example.request, reproduction: state.example.reproduction };
     $("#request-json").textContent = pretty(request);
     $("#assertion-json").textContent = pretty({ expected: state.example.expected, observed: state.example.observed });
@@ -102,6 +129,7 @@ function finishReduction(report) {
   state.reductionController = null;
   if (report.status === "completed") {
     state.candidate = report.candidate;
+    unlockTransform();
     showStatus("neutral", "Candidate reduced", "Every accepted change retained the target failure. Disclosure checks have not been performed.", "→");
   }
 }
@@ -163,7 +191,74 @@ function cancelReduction() {
   showStatus("neutral", "Reduction cancelled", "The original example is still the active candidate. Disclosure checks have not been performed.", "○");
 }
 
+function selectedDisclosurePaths() {
+  return Array.from(document.querySelectorAll("#sensitive-paths input:checked"), (input) => input.value);
+}
+
+function renderTransformCard(report) {
+  const reproductionPass = report.reproduction.kind === "target-failure";
+  const disclosurePass = report.disclosure.kind === "passed";
+  const card = document.createElement("article");
+  card.className = `transform-card ${report.acceptable ? "acceptable" : "unacceptable"}`;
+  card.innerHTML = `
+    <div class="transform-card-heading">
+      <div><h4>${report.label}</h4><span class="card-label">${report.strategy === "redact" ? "Replace values with [REDACTED]" : "Replace with shape-preserving demo values"}</span></div>
+      <span class="result-pill ${report.acceptable ? "accepted" : "unacceptable"}">${report.acceptable ? "Acceptable candidate" : "Not acceptable"}</span>
+    </div>
+    <div class="check-stack">
+      <div class="mini-check ${reproductionPass ? "pass" : "fail"}"><span class="mini-icon">${reproductionPass ? "✓" : "×"}</span><span><strong>Reproducibility:</strong> ${report.reproduction.label}. ${report.reproduction.message}</span></div>
+      <div class="mini-check ${disclosurePass ? "pass" : "fail"}"><span class="mini-icon">${disclosurePass ? "✓" : "×"}</span><span><strong>Disclosure:</strong> ${report.disclosure.label}. ${report.disclosure.message}</span></div>
+    </div>
+    <p class="card-label">${report.message}</p>`;
+  const details = document.createElement("details");
+  details.className = "json-details";
+  const summary = document.createElement("summary");
+  summary.innerHTML = "<span>Inspect transformed JSON</span><span class=\"summary-hint\">proposed export</span>";
+  const pre = document.createElement("pre");
+  pre.className = "code-block";
+  pre.tabIndex = 0;
+  pre.textContent = pretty(report.case);
+  details.append(summary, pre);
+  card.appendChild(details);
+  return card;
+}
+
+async function transformExample() {
+  const paths = selectedDisclosurePaths();
+  const caseToTransform = state.candidate || state.example;
+  if (!caseToTransform) return;
+  const button = $("#transform-button");
+  button.disabled = true;
+  button.innerHTML = "<span aria-hidden=\"true\">◌</span> Checking…";
+  $("#transform-results").classList.add("hidden");
+  try {
+    const response = await fetch("/api/transform", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ case: caseToTransform, paths })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.reports) throw new Error(payload.error || "Transformation check failed");
+    state.transformReport = payload.reports;
+    const results = $("#transform-results");
+    results.replaceChildren(...payload.reports.map(renderTransformCard));
+    results.classList.remove("hidden");
+    const accepted = payload.reports.find((report) => report.acceptable);
+    if (accepted) {
+      showStatus("success", "Configured disclosure checks passed", "The synthetic candidate preserves the target failure and removes the configured original values. Review is still required.", "✓");
+    } else {
+      showStatus("error", "No acceptable candidate found", "The configured transformations did not satisfy both reproducibility and disclosure checks.", "×");
+    }
+  } catch (error) {
+    showStatus("error", "Transformation error", error.message, "×");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = "<span aria-hidden=\"true\">◇</span> Check transformations";
+  }
+}
+
 $("#run-button").addEventListener("click", runExample);
 $("#reduce-button").addEventListener("click", reduceExample);
 $("#cancel-button").addEventListener("click", cancelReduction);
+$("#transform-button").addEventListener("click", transformExample);
 loadExample();

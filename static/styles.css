@@ -135,6 +135,33 @@ progress { width: 100%; height: .5rem; accent-color: var(--teal); }
 .check-row.accepted .check-result { color: var(--teal); }
 .check-row.rejected .check-result { color: var(--amber); }
 
+.transform-panel { margin-top: 1.15rem; padding: 1.35rem; background: var(--surface); border: 1px solid var(--line); border-radius: .65rem; box-shadow: var(--shadow); }
+.transform-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 2rem; }
+.transform-intro p:not(.panel-kicker) { max-width: 650px; margin: .45rem 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.sensitive-fields { min-width: 0; margin: 1.15rem 0 0; padding: 1rem; border: 1px solid var(--line); border-radius: .45rem; }
+.sensitive-fields legend { padding: 0 .35rem; color: var(--navy); font-size: .76rem; font-weight: 800; }
+.path-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: .55rem; }
+.path-option { display: flex; align-items: center; gap: .5rem; padding: .55rem .65rem; color: var(--navy); background: #f4f7f9; border-radius: .35rem; font: .7rem ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+.path-option input { width: 15px; height: 15px; accent-color: var(--teal); }
+.field-help { margin: .75rem 0 0; color: var(--muted); font-size: .69rem; line-height: 1.4; }
+.transform-results { display: grid; grid-template-columns: repeat(2, 1fr); gap: .85rem; margin-top: 1.15rem; }
+.transform-card { min-width: 0; padding: 1rem; border: 1px solid var(--line); border-radius: .45rem; }
+.transform-card.acceptable { border-color: #bfe1dc; background: #f6fcfb; }
+.transform-card.unacceptable { background: #faf8f4; }
+.transform-card-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: .7rem; }
+.transform-card h4 { margin: 0; color: var(--navy); font-size: .82rem; }
+.transform-card .card-label { color: var(--muted); font-size: .68rem; }
+.result-pill { padding: .28rem .45rem; border-radius: 99px; font-size: .62rem; font-weight: 800; white-space: nowrap; }
+.result-pill.accepted { color: var(--teal); background: var(--teal-soft); }
+.result-pill.unacceptable { color: var(--amber); background: var(--amber-soft); }
+.check-stack { display: grid; gap: .45rem; margin: .85rem 0; }
+.mini-check { display: flex; align-items: flex-start; gap: .45rem; color: var(--muted); font-size: .7rem; line-height: 1.35; }
+.mini-check .mini-icon { display: grid; flex: 0 0 auto; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-weight: 900; }
+.mini-check.pass .mini-icon { color: var(--teal); background: var(--teal-soft); }
+.mini-check.fail .mini-icon { color: var(--red); background: var(--red-soft); }
+.transform-card .json-details { margin-top: .8rem; }
+.transform-card .code-block { max-height: 190px; }
+
 .taxonomy { display: grid; grid-template-columns: .95fr 1.25fr; gap: 2rem; margin: 1.7rem 0 0; padding: 1.2rem 1.35rem; background: #edf1f4; border: 1px solid #dce3e8; border-radius: .65rem; }
 .taxonomy-copy p:last-child { margin: .55rem 0 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
 .taxonomy-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; align-items: start; }
@@ -154,6 +181,7 @@ progress { width: 100%; height: .5rem; accent-color: var(--teal); }
   .scope-card { display: inline-flex; margin-top: 1.2rem; }
   .workspace-grid, .taxonomy { grid-template-columns: 1fr; }
   .taxonomy-list { grid-template-columns: repeat(3, 1fr); }
+  .transform-results { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
   .topbar { height: auto; padding: 1rem 1.25rem; gap: 1rem; align-items: flex-start; }
@@ -172,6 +200,9 @@ progress { width: 100%; height: .5rem; accent-color: var(--teal); }
   .primary-button { width: 100%; margin-top: 1rem; }
   .reduction-actions .primary-button { width: auto; margin-top: 0; }
   .reduction-summary { grid-template-columns: 1fr 1fr; }
+  .transform-intro { display: block; }
+  .transform-intro .primary-button { margin-top: 1rem; }
+  .path-options { grid-template-columns: 1fr; }
   .taxonomy-list { grid-template-columns: 1fr; }
   .footer-note { align-items: flex-start; gap: .5rem; flex-direction: column; }
 }

@@ -41,7 +41,7 @@
         <div class="journey-connector"></div>
         <div id="step-reduce" class="journey-step locked" aria-disabled="true"><span class="step-number">2</span><span><strong>Reduce</strong><small>Keep only what matters</small></span></div>
         <div class="journey-connector"></div>
-        <div class="journey-step locked" aria-disabled="true"><span class="step-number">3</span><span><strong>Transform</strong><small>Apply disclosure rules</small></span></div>
+        <div id="step-transform" class="journey-step locked" aria-disabled="true"><span class="step-number">3</span><span><strong>Transform</strong><small>Apply disclosure rules</small></span></div>
         <div class="journey-connector"></div>
         <div class="journey-step locked" aria-disabled="true"><span class="step-number">4</span><span><strong>Review &amp; export</strong><small>Inspect what leaves</small></span></div>
       </nav>
@@ -141,6 +141,16 @@
           <summary><span>Inspect reduction checks</span><span class="summary-hint">every attempt</span></summary>
           <div id="checks-list" class="checks-list"></div>
         </details>
+      </section>
+
+      <section id="transform-panel" class="transform-panel hidden" aria-labelledby="transform-heading">
+        <div class="transform-intro"><div><p class="panel-kicker">PHASE 3 · TRANSFORM</p><h3 id="transform-heading">Configure disclosure rules</h3><p>Select the exact fields that must be changed. ReproSafe will show disclosure and reproducibility as separate checks.</p></div><button id="transform-button" class="primary-button" type="button"><span aria-hidden="true">◇</span> Check transformations</button></div>
+        <fieldset class="sensitive-fields">
+          <legend>Sensitive fields</legend>
+          <div id="sensitive-paths" class="path-options"></div>
+          <p class="field-help">These configured values are checked for exact absence in the proposed JSON. Passing this list does not prove universal anonymity.</p>
+        </fieldset>
+        <div id="transform-results" class="transform-results hidden" aria-live="polite"></div>
       </section>
 
       <section class="taxonomy" aria-labelledby="taxonomy-heading">

@@ -3,7 +3,7 @@ import json
 import unittest
 from pathlib import Path
 
-from server import case_size, execute_case, load_fixture, reduce_case
+from server import case_size, disclosure_check, execute_case, load_fixture, reduce_case, transform_case_report
 
 
 class ReproductionEngineTests(unittest.TestCase):
@@ -77,6 +77,30 @@ class ReproductionEngineTests(unittest.TestCase):
         self.assertEqual(report["candidate"], original)
         self.assertEqual(report["candidate_size"], case_size(original))
         self.assertEqual(report["accepted"], 0)
+
+    def test_redaction_passes_disclosure_but_removes_target_failure(self):
+        paths = self.fixture["disclosure"]["sensitive_paths"]
+        report = transform_case_report(self.fixture, paths, "redact")
+
+        self.assertEqual(report["reproduction"]["kind"], "success")
+        self.assertEqual(report["disclosure"]["kind"], "passed")
+        self.assertFalse(report["acceptable"])
+
+    def test_synthetic_values_pass_disclosure_and_preserve_target_failure(self):
+        paths = self.fixture["disclosure"]["sensitive_paths"]
+        report = transform_case_report(self.fixture, paths, "synthetic")
+
+        self.assertEqual(report["reproduction"]["kind"], "target-failure")
+        self.assertEqual(report["disclosure"]["kind"], "passed")
+        self.assertTrue(report["acceptable"])
+        self.assertNotIn(self.fixture["request"]["customer"]["email"], json.dumps(report["case"]))
+
+    def test_unconfigured_sensitive_value_fails_the_configured_check(self):
+        paths = ["request.customer.name"]
+        disclosure = disclosure_check(self.fixture, self.fixture, paths)
+
+        self.assertEqual(disclosure["kind"], "failed")
+        self.assertEqual(disclosure["leaked_paths"], paths)
 
 
 if __name__ == "__main__":

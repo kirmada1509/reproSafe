@@ -226,6 +226,77 @@ def reduce_case(case: dict[str, Any], *, cancel_after: int | None = None) -> dic
     }
 
 
+def _set_path(case: dict[str, Any], path: str, value: Any) -> None:
+    parts = path.split(".")
+    current: Any = case
+    for part in parts[:-1]:
+        if not isinstance(current, dict) or part not in current:
+            return
+        current = current[part]
+    if isinstance(current, dict) and parts[-1] in current:
+        current[parts[-1]] = value
+
+
+def _get_original_values(case: dict[str, Any], paths: list[str]) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for path in paths:
+        value = _get_path(case, path)
+        if value is not None:
+            values[path] = value
+    return values
+
+
+def disclosure_check(original: dict[str, Any], proposed: dict[str, Any], paths: list[str]) -> dict[str, Any]:
+    """Check configured exact sensitive values, not universal anonymity."""
+    proposed_text = compact_json(proposed)
+    original_values = _get_original_values(original, paths)
+    leaked = [path for path, value in original_values.items() if str(value) in proposed_text]
+    checked = [path for path in original_values if path not in leaked]
+    return {
+        "kind": "passed" if not leaked else "failed",
+        "label": "Configured disclosure checks passed" if not leaked else "Configured disclosure checks failed",
+        "checked_paths": checked,
+        "leaked_paths": leaked,
+        "message": "Configured exact values are absent from the proposed JSON." if not leaked else "One or more configured original values are still present.",
+        "scope": "Exact configured values only; this does not prove universal anonymity.",
+    }
+
+
+def transform_case(case: dict[str, Any], paths: list[str], strategy: str) -> dict[str, Any]:
+    """Apply one of the two supported fictional-data transformations."""
+    transformed = deepcopy(case)
+    replacements = {
+        "request.customer.name": "Demo Customer",
+        "request.customer.email": "synthetic@northstar.example",
+        "request.customer.account_id": "acct_reprosafe_demo",
+        "request.payment.card_last4": "0000",
+    }
+    for path in paths:
+        if strategy == "redact":
+            _set_path(transformed, path, "[REDACTED]")
+        elif strategy == "synthetic":
+            _set_path(transformed, path, replacements.get(path, "synthetic-value"))
+        else:
+            raise ValueError(f"Unsupported transformation strategy: {strategy}")
+    return transformed
+
+
+def transform_case_report(case: dict[str, Any], paths: list[str], strategy: str) -> dict[str, Any]:
+    proposed = transform_case(case, paths, strategy)
+    reproduction = execute_case(proposed)
+    disclosure = disclosure_check(case, proposed, paths)
+    acceptable = reproduction["kind"] == "target-failure" and disclosure["kind"] == "passed"
+    return {
+        "strategy": strategy,
+        "label": "Ordinary redaction" if strategy == "redact" else "Structure-preserving synthetic values",
+        "case": proposed,
+        "reproduction": reproduction,
+        "disclosure": disclosure,
+        "acceptable": acceptable,
+        "message": "Accepted candidate: both checks pass." if acceptable else "Not an acceptable export candidate: both reproducibility and disclosure checks must pass.",
+    }
+
+
 class ReproSafeHandler(BaseHTTPRequestHandler):
     server_version = "ReproSafe/0.1"
 
@@ -264,7 +335,7 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path not in {"/api/run", "/api/reduce"}:
+        if path not in {"/api/run", "/api/reduce", "/api/transform"}:
             self._send_json({"error": "Not found"}, HTTPStatus.NOT_FOUND)
             return
         try:
@@ -278,9 +349,20 @@ class ReproSafeHandler(BaseHTTPRequestHandler):
                 result = execute_case(case, timeout_ms=timeout_ms if isinstance(timeout_ms, int) else None)
                 self._send_json({"result": result})
             else:
-                cancel_after = payload.get("cancel_after")
-                report = reduce_case(case, cancel_after=cancel_after if isinstance(cancel_after, int) else None)
-                self._send_json({"report": report})
+                if path == "/api/reduce":
+                    cancel_after = payload.get("cancel_after")
+                    report = reduce_case(case, cancel_after=cancel_after if isinstance(cancel_after, int) else None)
+                    self._send_json({"report": report})
+                else:
+                    paths = payload.get("paths")
+                    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+                        raise ValueError("body.paths must be a list of strings")
+                    self._send_json({
+                        "reports": [
+                            transform_case_report(case, paths, "redact"),
+                            transform_case_report(case, paths, "synthetic"),
+                        ]
+                    })
         except (ValueError, json.JSONDecodeError) as exc:
             self._send_json({"result": _result("execution-error", "Execution error", str(exc), time.perf_counter())}, HTTPStatus.BAD_REQUEST)
 
